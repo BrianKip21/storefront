@@ -21,46 +21,45 @@ export default function ProductCard({ product }) {
             className="group block"
         >
             {/* IMAGE */}
-            <div className="relative aspect-[3/4] w-full overflow-hidden bg-page">
-
+            <div className="relative aspect-[4/5] w-full overflow-hidden bg-neutral-100">
                 <img
                     src={product.image}
                     alt={product.title}
-                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
                 />
 
-                {/* SALE BADGE */}
+                {/* SALE */}
                 {onSale && !isOutOfStock && (
-                    <span className="absolute left-3 top-3 bg-accent px-2.5 py-1 text-[9px] font-medium uppercase tracking-[1.2px] text-white">
+                    <span className="absolute left-3 top-3 bg-white px-2.5 py-1.5 text-[9px] font-medium uppercase tracking-[0.15em] text-neutral-900">
                         Sale
                     </span>
                 )}
 
                 {/* SOLD OUT */}
                 {isOutOfStock && (
-                    <span className="absolute left-3 top-3 bg-[#0F172A] px-2.5 py-1 text-[9px] font-medium uppercase tracking-[1.2px] text-white">
+                    <span className="absolute left-3 top-3 bg-neutral-900 px-2.5 py-1.5 text-[9px] font-medium uppercase tracking-[0.15em] text-white">
                         Sold out
                     </span>
                 )}
 
-                {/* VIEW PRODUCT */}
-                <div className="absolute bottom-0 left-0 right-0 translate-y-full bg-white/95 px-4 py-3 text-center text-[10px] uppercase tracking-[1.5px] text-[#1E3A8A] opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+                {/* DESKTOP HOVER ACTION */}
+                <div className="absolute inset-x-3 bottom-3 hidden translate-y-2 bg-white/95 px-4 py-3 text-center text-[10px] font-medium uppercase tracking-[0.16em] text-neutral-900 opacity-0 backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 sm:block">
                     View product
                 </div>
             </div>
 
             {/* PRODUCT INFORMATION */}
             <div className="pt-4">
-
                 {/* BRAND */}
                 {product.brand?.name && (
-                    <p className="text-[9px] uppercase tracking-[1.6px] text-muted">
+                    <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-neutral-500">
                         {product.brand.name}
                     </p>
                 )}
 
                 {/* TITLE */}
-                <p className="mt-1 text-[13px] leading-snug text-[#1E3A8A] transition-colors group-hover:text-brand">
+                <p className="mt-1.5 line-clamp-1 text-[13px] leading-snug text-neutral-900 transition-colors group-hover:text-neutral-600">
                     {product.title}
                 </p>
 
@@ -69,15 +68,15 @@ export default function ProductCard({ product }) {
                     <span
                         className={`text-[13px] font-medium ${
                             onSale
-                                ? "text-text"
-                                : "text-[#1E3A8A]"
+                                ? "text-neutral-900"
+                                : "text-neutral-800"
                         }`}
                     >
                         KES {price?.toLocaleString()}
                     </span>
 
                     {onSale && (
-                        <span className="text-[12px] text-muted line-through">
+                        <span className="text-[12px] text-neutral-400 line-through">
                             KES {originalPrice?.toLocaleString()}
                         </span>
                     )}
@@ -85,7 +84,7 @@ export default function ProductCard({ product }) {
 
                 {/* REVIEWS */}
                 {product.averageReview > 0 && (
-                    <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted">
+                    <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-neutral-500">
                         <Star
                             size={11}
                             strokeWidth={1.5}
@@ -96,7 +95,7 @@ export default function ProductCard({ product }) {
                             {Number(product.averageReview).toFixed(1)}
                         </span>
 
-                        <span>·</span>
+                        <span className="text-neutral-300">·</span>
 
                         <span>
                             {product.reviewCount}{" "}

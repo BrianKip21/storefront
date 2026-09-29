@@ -399,7 +399,7 @@ export default function ProductDetails() {
                                             className={`min-h-8 min-w-9 border px-2 text-[12px] transition ${
                                                 selectedSize ===
                                                 variant.size
-                                                    ? "border-blue-600 bg-blue-600 text-white"
+                                                    ? "border-black bg-black text-white"
                                                     : "border-neutral-300 text-neutral-700 hover:border-neutral-900"
                                             } disabled:cursor-not-allowed disabled:opacity-25`}
                                         >
@@ -492,7 +492,7 @@ export default function ProductDetails() {
                                     0 ||
                                 adding
                             }
-                            className="h-10 flex-1 bg-blue-600 px-4 text-[11px] tracking-[1px] text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                            className="h-10 flex-1 bg-black px-4 text-[11px] tracking-[1px] text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
                         >
                             {adding
                                 ? "ADDING..."
@@ -608,7 +608,7 @@ export default function ProductDetails() {
                         <button
                             type="submit"
                             disabled={submittingReview}
-                            className="h-9 w-full bg-blue-600 text-[11px] tracking-wide text-white hover:bg-blue-700 disabled:opacity-40"
+                            className="h-9 w-full bg-black text-[11px] tracking-wide text-white hover:bg-black disabled:opacity-40"
                         >
                             {submittingReview
                                 ? "SUBMITTING..."

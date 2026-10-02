@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Star } from "lucide-react";
+import toast from "react-hot-toast";
+
 import * as productService from "../services/productService";
 import * as reviewService from "../services/reviewService";
+
 import { useCartStore } from "../stores/cartStore";
 import { useAuthStore } from "../stores/authStore";
+
 import LoadingSpinner from "../components/LoadingSpinner";
-import toast from "react-hot-toast";
+import WishlistButton from "../components/WishlistButton";
+
 
 const colorMap = {
     black: "#000000",
@@ -35,6 +40,7 @@ const getColorValue = (color) => {
     );
 };
 
+
 export default function ProductDetails() {
     const { id } = useParams();
 
@@ -55,7 +61,9 @@ export default function ProductDetails() {
         comment: "",
     });
 
-    const [submittingReview, setSubmittingReview] = useState(false);
+    const [submittingReview, setSubmittingReview] =
+        useState(false);
+
 
     // ------------------------------------------------------------
     // FETCH PRODUCT + REVIEWS
@@ -64,18 +72,30 @@ export default function ProductDetails() {
     useEffect(() => {
         const loadProduct = async () => {
             try {
-                const res = await productService.getProductById(id);
+                const res =
+                    await productService.getProductById(id);
 
-                setProduct(res.data);
+                const productData = res.data;
 
-                const firstVariant = res.data.variants?.[0];
+                setProduct(productData);
+
+                const firstVariant =
+                    productData.variants?.[0];
 
                 if (firstVariant) {
-                    setSelectedColor(firstVariant.color || null);
-                    setSelectedSize(firstVariant.size || null);
+                    setSelectedColor(
+                        firstVariant.color || null
+                    );
+
+                    setSelectedSize(
+                        firstVariant.size || null
+                    );
                 }
-            } catch (err) {
-                toast.error(err.message);
+            } catch (error) {
+                toast.error(
+                    error.response?.data?.message ||
+                    "Failed to load product"
+                );
             }
         };
 
@@ -84,7 +104,7 @@ export default function ProductDetails() {
                 const res =
                     await reviewService.getProductReviews(id);
 
-                setReviews(res.data);
+                setReviews(res.data || []);
             } catch {
                 setReviews([]);
             }
@@ -94,6 +114,7 @@ export default function ProductDetails() {
         loadReviews();
     }, [id]);
 
+
     // ------------------------------------------------------------
     // LOADING
     // ------------------------------------------------------------
@@ -101,6 +122,7 @@ export default function ProductDetails() {
     if (!product) {
         return <LoadingSpinner />;
     }
+
 
     // ------------------------------------------------------------
     // VARIANTS
@@ -117,7 +139,8 @@ export default function ProductDetails() {
     ];
 
     const sizesForColor = variants.filter(
-        (variant) => variant.color === selectedColor
+        (variant) =>
+            variant.color === selectedColor
     );
 
     const activeVariant = variants.find(
@@ -133,6 +156,7 @@ export default function ProductDetails() {
     const onSale =
         activeVariant?.salePrice != null;
 
+
     // ------------------------------------------------------------
     // COLOR SELECTION
     // ------------------------------------------------------------
@@ -140,22 +164,30 @@ export default function ProductDetails() {
     const handleColorChange = (color) => {
         setSelectedColor(color);
 
-        const firstVariant = variants.find(
-            (variant) =>
-                variant.color === color &&
-                variant.stock > 0
-        );
+        const firstAvailableVariant =
+            variants.find(
+                (variant) =>
+                    variant.color === color &&
+                    variant.stock > 0
+            );
 
-        const fallbackVariant = variants.find(
-            (variant) => variant.color === color
-        );
+        const fallbackVariant =
+            variants.find(
+                (variant) =>
+                    variant.color === color
+            );
 
         const variant =
-            firstVariant || fallbackVariant;
+            firstAvailableVariant ||
+            fallbackVariant;
 
-        setSelectedSize(variant?.size || null);
+        setSelectedSize(
+            variant?.size || null
+        );
+
         setQuantity(1);
     };
+
 
     // ------------------------------------------------------------
     // ADD TO CART
@@ -187,12 +219,13 @@ export default function ProductDetails() {
         }
     };
 
+
     // ------------------------------------------------------------
     // REVIEW
     // ------------------------------------------------------------
 
-    const handleSubmitReview = async (e) => {
-        e.preventDefault();
+    const handleSubmitReview = async (event) => {
+        event.preventDefault();
 
         setSubmittingReview(true);
 
@@ -212,13 +245,17 @@ export default function ProductDetails() {
             const res =
                 await reviewService.getProductReviews(id);
 
-            setReviews(res.data);
-        } catch (err) {
-            toast.error(err.message);
+            setReviews(res.data || []);
+        } catch (error) {
+            toast.error(
+                error.response?.data?.message ||
+                "Failed to submit review"
+            );
         } finally {
             setSubmittingReview(false);
         }
     };
+
 
     return (
         <div className="mx-auto max-w-6xl px-6 py-8">
@@ -229,7 +266,9 @@ export default function ProductDetails() {
 
             <div className="grid gap-8 md:grid-cols-2">
 
-                {/* IMAGE */}
+                {/* ==================================================
+                    IMAGE
+                ================================================== */}
 
                 <div className="mx-auto aspect-[4/5] w-full max-w-[360px] overflow-hidden bg-base-200">
                     <img
@@ -239,7 +278,10 @@ export default function ProductDetails() {
                     />
                 </div>
 
-                {/* DETAILS */}
+
+                {/* ==================================================
+                    DETAILS
+                ================================================== */}
 
                 <div className="md:pt-2">
 
@@ -251,16 +293,28 @@ export default function ProductDetails() {
                         </p>
                     )}
 
-                    {/* TITLE */}
 
-                    <h1 className="mt-1.5 font-serif text-2xl tracking-tight">
-                        {product.title}
-                    </h1>
+                    {/* TITLE + WISHLIST */}
+
+                    <div className="mt-1.5 flex items-start justify-between gap-4">
+
+                        <h1 className="font-serif text-2xl tracking-tight">
+                            {product.title}
+                        </h1>
+
+                        <WishlistButton
+                            productId={product._id}
+                            className="shrink-0 rounded-full p-2 transition hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-black/20"
+                        />
+
+                    </div>
+
 
                     {/* RATING */}
 
                     {product.averageReview > 0 && (
                         <div className="mt-1.5 flex items-center gap-1.5 text-[12px] text-neutral-500">
+
                             <Star
                                 size={12}
                                 strokeWidth={1.5}
@@ -283,12 +337,15 @@ export default function ProductDetails() {
                                 {product.reviewCount !== 1 &&
                                     "s"}
                             </span>
+
                         </div>
                     )}
+
 
                     {/* PRICE */}
 
                     <div className="mt-4 flex items-center gap-2 text-sm">
+
                         <span
                             className={
                                 onSale
@@ -306,7 +363,9 @@ export default function ProductDetails() {
                                 {activeVariant.price.toLocaleString()}
                             </span>
                         )}
+
                     </div>
+
 
                     {/* DESCRIPTION */}
 
@@ -314,12 +373,14 @@ export default function ProductDetails() {
                         {product.description}
                     </p>
 
+
                     {/* COLOR */}
 
                     {colors.length > 0 && (
                         <div className="mt-6">
 
                             <div className="mb-3 flex items-center gap-2">
+
                                 <p className="text-[10px] tracking-[1.5px] text-neutral-400">
                                     COLOR
                                 </p>
@@ -329,13 +390,15 @@ export default function ProductDetails() {
                                         {selectedColor}
                                     </span>
                                 )}
+
                             </div>
 
+
                             <div className="flex flex-wrap gap-3">
+
                                 {colors.map((color) => {
                                     const selected =
-                                        selectedColor ===
-                                        color;
+                                        selectedColor === color;
 
                                     return (
                                         <button
@@ -366,10 +429,12 @@ export default function ProductDetails() {
                                         </button>
                                     );
                                 })}
+
                             </div>
 
                         </div>
                     )}
+
 
                     {/* SIZE */}
 
@@ -381,14 +446,14 @@ export default function ProductDetails() {
                             </p>
 
                             <div className="flex flex-wrap gap-1.5">
+
                                 {sizesForColor.map(
                                     (variant) => (
                                         <button
                                             key={variant._id}
                                             type="button"
                                             disabled={
-                                                variant.stock ===
-                                                0
+                                                variant.stock === 0
                                             }
                                             onClick={() => {
                                                 setSelectedSize(
@@ -407,10 +472,12 @@ export default function ProductDetails() {
                                         </button>
                                     )
                                 )}
+
                             </div>
 
                         </div>
                     )}
+
 
                     {/* STOCK */}
 
@@ -430,6 +497,7 @@ export default function ProductDetails() {
                             </p>
                         )}
 
+
                     {/* CART */}
 
                     <div className="mt-6 flex gap-2">
@@ -441,10 +509,10 @@ export default function ProductDetails() {
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setQuantity((q) =>
+                                    setQuantity((quantity) =>
                                         Math.max(
                                             1,
-                                            q - 1
+                                            quantity - 1
                                         )
                                     )
                                 }
@@ -461,11 +529,11 @@ export default function ProductDetails() {
                             <button
                                 type="button"
                                 onClick={() =>
-                                    setQuantity((q) =>
+                                    setQuantity((quantity) =>
                                         Math.min(
                                             activeVariant?.stock ||
                                                 1,
-                                            q + 1
+                                            quantity + 1
                                         )
                                     )
                                 }
@@ -481,6 +549,7 @@ export default function ProductDetails() {
 
                         </div>
 
+
                         {/* ADD TO CART */}
 
                         <button
@@ -488,8 +557,7 @@ export default function ProductDetails() {
                             onClick={handleAddToCart}
                             disabled={
                                 !activeVariant ||
-                                activeVariant.stock ===
-                                    0 ||
+                                activeVariant.stock === 0 ||
                                 adding
                             }
                             className="h-10 flex-1 bg-black px-4 text-[11px] tracking-[1px] text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-30"
@@ -504,6 +572,7 @@ export default function ProductDetails() {
                 </div>
             </div>
 
+
             {/* ====================================================
                 REVIEWS
             ==================================================== */}
@@ -513,6 +582,7 @@ export default function ProductDetails() {
                 <p className="text-[10px] tracking-[1.8px] text-neutral-400">
                     REVIEWS
                 </p>
+
 
                 {reviews.length === 0 ? (
                     <p className="mt-3 text-[13px] text-neutral-400">
@@ -526,6 +596,7 @@ export default function ProductDetails() {
                                 key={review._id}
                                 className="border-b border-base-300 pb-4"
                             >
+
                                 <div className="flex items-center gap-3 text-[12px]">
 
                                     <span className="font-medium">
@@ -533,6 +604,7 @@ export default function ProductDetails() {
                                     </span>
 
                                     <span className="flex items-center gap-1 text-neutral-400">
+
                                         <Star
                                             size={11}
                                             strokeWidth={1.5}
@@ -540,20 +612,24 @@ export default function ProductDetails() {
                                         />
 
                                         {review.rating}/5
+
                                     </span>
 
                                 </div>
+
 
                                 {review.comment && (
                                     <p className="mt-1 text-[13px] leading-relaxed text-neutral-600">
                                         {review.comment}
                                     </p>
                                 )}
+
                             </div>
                         ))}
 
                     </div>
                 )}
+
 
                 {/* REVIEW FORM */}
 
@@ -562,17 +638,19 @@ export default function ProductDetails() {
                         onSubmit={handleSubmitReview}
                         className="mt-6 max-w-sm space-y-2.5"
                     >
+
                         <p className="text-[12px] font-medium">
                             Leave a review
                         </p>
 
+
                         <select
                             value={reviewForm.rating}
-                            onChange={(e) =>
+                            onChange={(event) =>
                                 setReviewForm({
                                     ...reviewForm,
                                     rating: Number(
-                                        e.target.value
+                                        event.target.value
                                     ),
                                 })
                             }
@@ -592,18 +670,20 @@ export default function ProductDetails() {
                             )}
                         </select>
 
+
                         <textarea
                             value={reviewForm.comment}
-                            onChange={(e) =>
+                            onChange={(event) =>
                                 setReviewForm({
                                     ...reviewForm,
-                                    comment: e.target.value,
+                                    comment: event.target.value,
                                 })
                             }
                             placeholder="Share your thoughts (optional)"
                             rows={3}
                             className="textarea textarea-bordered w-full rounded-none text-xs"
                         />
+
 
                         <button
                             type="submit"
@@ -615,15 +695,17 @@ export default function ProductDetails() {
                                 : "SUBMIT REVIEW"}
                         </button>
 
+
                         <p className="text-[10px] leading-relaxed text-neutral-400">
                             Only customers who purchased and paid
                             for this product can review it.
                         </p>
+
                     </form>
                 )}
 
             </div>
+
         </div>
     );
 }
-

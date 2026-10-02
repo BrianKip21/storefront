@@ -13,6 +13,7 @@ import Checkout from "./pages/Checkout";
 import Orders from "./pages/Orders";
 import OrderDetails from "./pages/OrderDetails";
 import ScrollToTop from "./components/ScrollToTop";
+import Wishlist from "./pages/Wishlist";
 import Terms from "./pages/Terms";
 import Returns from "./pages/Returns";
 import FAQ from "./pages/FAQ";
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/privacy" element={<Privacy />} />
 
           <Route element={<RequireAuthLayout />}>
+            <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetails />} />

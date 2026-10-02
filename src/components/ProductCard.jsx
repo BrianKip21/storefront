@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Star } from "lucide-react";
+import WishlistButton from "./WishlistButton";
 
 export default function ProductCard({ product }) {
     const variant = product.variants?.[0];
@@ -27,6 +28,12 @@ export default function ProductCard({ product }) {
                     alt={product.title}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.025]"
+                />
+
+                {/* WISHLIST */}
+                <WishlistButton
+                    productId={product._id}
+                    className="absolute right-3 top-3 rounded-full bg-white/90 p-2 shadow-sm backdrop-blur-sm transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-black/20"
                 />
 
                 {/* SALE */}

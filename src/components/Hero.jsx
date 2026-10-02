@@ -89,7 +89,7 @@ export default function Hero() {
                             </p>
 
                             <Link
-                                to="/products"
+                                to="/collections"
                                 className="mt-6 inline-flex bg-white px-6 py-3 text-[10px] font-medium uppercase tracking-[0.15em] text-neutral-900 transition-colors duration-300 hover:bg-neutral-900 hover:text-white sm:mt-7 sm:px-7 sm:py-3.5 sm:text-xs"
                             >
                                 Shop Collection

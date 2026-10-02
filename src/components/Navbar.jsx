@@ -93,7 +93,7 @@ export default function Navbar() {
                     </Link>
 
                     <Link
-                        to="/products"
+                        to="/collections"
                         className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-800 transition-colors hover:text-neutral-500"
                     >
                         Collections

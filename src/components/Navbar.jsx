@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     Search,
     User,
@@ -12,7 +12,6 @@ import {
 import { useAuthStore } from "../stores/authStore";
 import { useCartStore } from "../stores/cartStore";
 import { useWishlistStore } from "../stores/wishlistStore";
-
 
 export default function Navbar() {
     const user = useAuthStore((s) => s.user);
@@ -31,7 +30,32 @@ export default function Navbar() {
     const [showSearch, setShowSearch] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
     const [search, setSearch] = useState("");
+    const [scrolled, setScrolled] = useState(false);
 
+    // ------------------------------------------------------------
+    // SCROLL STATE
+    // ------------------------------------------------------------
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setScrolled(window.scrollY > 40);
+        };
+
+        handleScroll();
+
+        window.addEventListener(
+            "scroll",
+            handleScroll,
+            { passive: true }
+        );
+
+        return () => {
+            window.removeEventListener(
+                "scroll",
+                handleScroll
+            );
+        };
+    }, []);
 
     // ------------------------------------------------------------
     // SEARCH
@@ -52,7 +76,6 @@ export default function Navbar() {
         setShowSearch(false);
     };
 
-
     // ------------------------------------------------------------
     // MOBILE MENU
     // ------------------------------------------------------------
@@ -61,17 +84,43 @@ export default function Navbar() {
         setShowMenu(false);
     };
 
+    // ------------------------------------------------------------
+    // NAVBAR APPEARANCE
+    // ------------------------------------------------------------
+
+    const isTransparent =
+        !scrolled &&
+        !showSearch &&
+        !showMenu;
+
+    const textColor = isTransparent
+        ? "text-white"
+        : "text-neutral-900";
+
+    const mutedTextColor = isTransparent
+        ? "text-white/75"
+        : "text-neutral-500";
+
+    const hoverColor = isTransparent
+        ? "hover:text-white/70"
+        : "hover:text-neutral-500";
 
     return (
-        <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white/95 backdrop-blur-sm">
+        <header
+            className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
+                isTransparent
+                    ? "border-transparent bg-black/25 backdrop-blur-[6px]"
+                    : "border-b border-neutral-200 bg-white/95 shadow-sm backdrop-blur-md"
+            }`}
+        >
 
             {/* ====================================================
                 MAIN NAVBAR
             ==================================================== */}
 
-            <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-5 sm:px-8">
+            <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
 
-                {/* MOBILE MENU BUTTON */}
+                {/* MOBILE MENU */}
 
                 <button
                     type="button"
@@ -83,7 +132,7 @@ export default function Navbar() {
                             ? "Close menu"
                             : "Open menu"
                     }
-                    className="flex text-neutral-900 transition-colors hover:text-neutral-500 sm:hidden"
+                    className={`flex transition-colors sm:hidden ${textColor} ${hoverColor}`}
                 >
                     {showMenu ? (
                         <X
@@ -108,11 +157,15 @@ export default function Navbar() {
                 >
                     <div className="text-center leading-none">
 
-                        <span className="block font-serif text-[22px] font-semibold uppercase tracking-[0.18em] text-neutral-900 transition-colors group-hover:text-neutral-600 sm:text-2xl">
+                        <span
+                            className={`block font-serif text-[22px] font-semibold uppercase tracking-[0.18em] transition-colors sm:text-2xl ${textColor}`}
+                        >
                             Liaan
                         </span>
 
-                        <span className="mt-1 block text-[8px] font-medium uppercase tracking-[0.32em] text-neutral-500">
+                        <span
+                            className={`mt-1 block text-[8px] font-medium uppercase tracking-[0.32em] transition-colors ${mutedTextColor}`}
+                        >
                             Collections
                         </span>
 
@@ -128,21 +181,21 @@ export default function Navbar() {
 
                     <Link
                         to="/products?sort=newest"
-                        className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-800 transition-colors hover:text-neutral-500"
+                        className={`text-[11px] font-medium uppercase tracking-[0.16em] transition-colors ${textColor} ${hoverColor}`}
                     >
                         New
                     </Link>
 
                     <Link
                         to="/products"
-                        className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-800 transition-colors hover:text-neutral-500"
+                        className={`text-[11px] font-medium uppercase tracking-[0.16em] transition-colors ${textColor} ${hoverColor}`}
                     >
                         Shop
                     </Link>
 
                     <Link
                         to="/collections"
-                        className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-800 transition-colors hover:text-neutral-500"
+                        className={`text-[11px] font-medium uppercase tracking-[0.16em] transition-colors ${textColor} ${hoverColor}`}
                     >
                         Collections
                     </Link>
@@ -164,7 +217,7 @@ export default function Navbar() {
                         onClick={() =>
                             setShowSearch((state) => !state)
                         }
-                        className="text-neutral-900 transition-colors hover:text-neutral-500"
+                        className={`transition-colors ${textColor} ${hoverColor}`}
                     >
                         <Search
                             size={18}
@@ -178,11 +231,11 @@ export default function Navbar() {
                     <Link
                         to={
                             user
-                                ? "/signup"
+                                ? "/account"
                                 : "/login"
                         }
                         aria-label="Account"
-                        className="hidden text-neutral-900 transition-colors hover:text-neutral-500 sm:block"
+                        className={`hidden transition-colors sm:block ${textColor} ${hoverColor}`}
                     >
                         <User
                             size={18}
@@ -201,7 +254,7 @@ export default function Navbar() {
                                 : "Wishlist"
                         }
                         title="Wishlist"
-                        className="relative text-neutral-900 transition-colors hover:text-neutral-500"
+                        className={`relative transition-colors ${textColor} ${hoverColor}`}
                     >
                         <Heart
                             size={18}
@@ -209,7 +262,13 @@ export default function Navbar() {
                         />
 
                         {wishlistCount > 0 && (
-                            <span className="absolute -right-2 -top-2 flex min-h-[15px] min-w-[15px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[8px] font-medium leading-none text-white">
+                            <span
+                                className={`absolute -right-2 -top-2 flex min-h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[8px] font-medium leading-none ${
+                                    isTransparent
+                                        ? "bg-white text-neutral-900"
+                                        : "bg-neutral-900 text-white"
+                                }`}
+                            >
                                 {wishlistCount > 99
                                     ? "99+"
                                     : wishlistCount}
@@ -227,7 +286,7 @@ export default function Navbar() {
                                 ? `Shopping bag, ${itemCount} items`
                                 : "Shopping bag"
                         }
-                        className="relative text-neutral-900 transition-colors hover:text-neutral-500"
+                        className={`relative transition-colors ${textColor} ${hoverColor}`}
                     >
                         <ShoppingBag
                             size={18}
@@ -235,7 +294,13 @@ export default function Navbar() {
                         />
 
                         {itemCount > 0 && (
-                            <span className="absolute -right-2 -top-2 flex min-h-[15px] min-w-[15px] items-center justify-center rounded-full bg-neutral-900 px-1 text-[8px] font-medium leading-none text-white">
+                            <span
+                                className={`absolute -right-2 -top-2 flex min-h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[8px] font-medium leading-none ${
+                                    isTransparent
+                                        ? "bg-white text-neutral-900"
+                                        : "bg-neutral-900 text-white"
+                                }`}
+                            >
                                 {itemCount > 99
                                     ? "99+"
                                     : itemCount}
@@ -313,8 +378,6 @@ export default function Navbar() {
                             Collections
                         </Link>
 
-                        {/* MOBILE WISHLIST */}
-
                         <Link
                             to="/wishlist"
                             onClick={closeMenu}
@@ -332,7 +395,7 @@ export default function Navbar() {
                         <Link
                             to={
                                 user
-                                    ? "/signup"
+                                    ? "/account"
                                     : "/login"
                             }
                             onClick={closeMenu}
@@ -357,10 +420,8 @@ export default function Navbar() {
                         )}
 
                     </nav>
-
                 </div>
             )}
-
         </header>
     );
 }

@@ -28,6 +28,13 @@ export const useAuthStore = create((set) => ({
         useCartStore.getState().refreshCart(); // pulls in the merged guest cart
         return res;
     },
+    
+    googleLogin: async (credential) => {
+        const res = await authService.googleAuth(credential);
+        set({ user: res });
+        useCartStore.getState().refreshCart();
+        return res;
+    },
 
     logout: async () => {
         await authService.logout();

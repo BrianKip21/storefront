@@ -21,10 +21,14 @@ export default function Login() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
         setLoading(true);
 
         try {
-            await login(form);
+            await login({
+                email: form.email.trim().toLowerCase(),
+                password: form.password
+            });
 
             toast.success("Welcome back");
 
@@ -33,13 +37,25 @@ export default function Login() {
             });
 
         } catch (err) {
-            toast.error(
-                err.message || "Login failed"
-            );
+            const message =
+                err.response?.data?.message ||
+                err.message ||
+                "Login failed";
+
+            toast.error(message);
 
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+
+        setForm((prev) => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     return (
@@ -56,36 +72,43 @@ export default function Login() {
             >
                 <input
                     type="email"
+                    name="email"
                     required
+                    autoComplete="email"
                     placeholder="Email"
                     value={form.email}
-                    onChange={(e) =>
-                        setForm({
-                            ...form,
-                            email: e.target.value
-                        })
-                    }
-                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none focus:border-neutral-900"
+                    onChange={handleChange}
+                    disabled={loading}
+                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none transition-colors placeholder:text-neutral-400 focus:border-neutral-900 disabled:opacity-50"
                 />
 
-                <input
-                    type="password"
-                    required
-                    placeholder="Password"
-                    value={form.password}
-                    onChange={(e) =>
-                        setForm({
-                            ...form,
-                            password: e.target.value
-                        })
-                    }
-                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none focus:border-neutral-900"
-                />
+                <div>
+                    <input
+                        type="password"
+                        name="password"
+                        required
+                        autoComplete="current-password"
+                        placeholder="Password"
+                        value={form.password}
+                        onChange={handleChange}
+                        disabled={loading}
+                        className="w-full border-b border-neutral-300 pb-2 text-sm outline-none transition-colors placeholder:text-neutral-400 focus:border-neutral-900 disabled:opacity-50"
+                    />
+
+                    <div className="mt-2 text-right">
+                        <Link
+                            to="/forgot-password"
+                            className="text-[12px] text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
+                        >
+                            Forgot password?
+                        </Link>
+                    </div>
+                </div>
 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="h-12 w-full bg-neutral-900 text-[13px] tracking-wide text-white disabled:opacity-40"
+                    className="h-12 w-full bg-neutral-900 text-[13px] font-medium tracking-wide text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     {loading
                         ? "LOGGING IN..."

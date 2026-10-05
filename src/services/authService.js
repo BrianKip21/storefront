@@ -10,3 +10,7 @@ export const logout = () => axios.post("/auth/logout").then((r) => r.data);
 
 export const getMe = () => axios.get("/auth/me").then((r) => r.data);
 
+export const forgotPassword = (email) => axios.post("/auth/forgot-password", { email }).then((r) => r.data);
+
+export const resetPassword = (token, password) => axios.post(`/auth/reset-password/${token}`, { password }).then((r) => r.data);
+

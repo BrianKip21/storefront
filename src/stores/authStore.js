@@ -40,5 +40,7 @@ export const useAuthStore = create((set) => ({
         await authService.logout();
         set({ user: null });
         useCartStore.getState().refreshCart();
-    }
+    },
+
+    updateUser: (user) => set({ user })
 }));

@@ -1,15 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { RotateCcw, Loader2, CheckCircle2, Clock3 } from "lucide-react";
+import { useCartStore } from "../stores/cartStore";
+import { useAddresses } from "../hooks/useAddresses";
+import * as orderService from "../services/orderService";
+import AddressList from "../components/AddressList";
+import AddressForm from "../components/AddressForm";
 import toast from "react-hot-toast";
 
-import { useCartStore } from "../stores/cartStore";
-import * as orderService from "../services/orderService";
-
 const POLL_INTERVAL_MS = 3000;
-const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
-
-const MAX_PAYMENT_ATTEMPTS = 3;
+const POLL_TIMEOUT_MS = 90000;
 
 export default function Checkout() {
     const items = useCartStore((s) => s.items);
@@ -18,116 +17,203 @@ export default function Checkout() {
 
     const navigate = useNavigate();
 
-    const [address, setAddress] = useState({
-        fullName: "",
-        phone: "",
-        address: "",
-        city: "",
-        country: "Kenya"
-    });
+    const {
+        addresses,
+        loading: loadingAddresses,
+        addAddress,
+        editAddress,
+        deleteAddress,
+        setDefaultAddress
+    } = useAddresses();
+
+    // ----------------------------------------
+    // ADDRESS STATE
+    // ----------------------------------------
+
+    const [selectedAddressId, setSelectedAddressId] = useState(null);
+
+    const [usingDifferentAddress, setUsingDifferentAddress] =
+        useState(false);
+
+    const [temporaryAddress, setTemporaryAddress] =
+        useState(null);
+
+    const [submittingAddress, setSubmittingAddress] =
+        useState(false);
+
+    // ----------------------------------------
+    // CHECKOUT STATE
+    // ----------------------------------------
 
     const [step, setStep] = useState("form");
     const [order, setOrder] = useState(null);
     const [statusMessage, setStatusMessage] = useState("");
 
-    const [paymentAttempts, setPaymentAttempts] = useState(0);
-    const [paymentLockedUntil, setPaymentLockedUntil] = useState(null);
-    const [isRetrying, setIsRetrying] = useState(false);
+    // ----------------------------------------
+    // SELECTED SAVED ADDRESS
+    // ----------------------------------------
 
-    const pollingIntervalRef = useRef(null);
+    const selectedAddress =
+        addresses.find(
+            (address) => address._id === selectedAddressId
+        ) ||
+        addresses.find(
+            (address) => address.isDefault
+        ) ||
+        addresses[0] ||
+        null;
 
-    // ============================================
-    // CLEAN UP PAYMENT POLLING
-    // ============================================
+    // ----------------------------------------
+    // CURRENT SHIPPING ADDRESS
+    // ----------------------------------------
 
-    useEffect(() => {
-        return () => {
-            if (pollingIntervalRef.current) {
-                clearInterval(pollingIntervalRef.current);
-            }
-        };
-    }, []);
+    const currentShippingAddress =
+        temporaryAddress || selectedAddress;
 
-    // ============================================
-    // HANDLE INPUT
-    // ============================================
+    // ----------------------------------------
+    // USE DIFFERENT ADDRESS
+    // ----------------------------------------
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+    const handleUseDifferentAddress = () => {
+        setUsingDifferentAddress(true);
 
-        setAddress((previous) => ({
-            ...previous,
-            [name]: value
-        }));
+        // Clear any previous temporary address
+        setTemporaryAddress(null);
     };
 
-    // ============================================
-    // FORMAT LOCK TIME
-    // ============================================
+    // ----------------------------------------
+    // TEMPORARY ADDRESS SUBMIT
+    // ----------------------------------------
 
-    const getLockMessage = () => {
-        if (!paymentLockedUntil) {
-            return "Please try again later.";
+    const handleTemporaryAddress = async (form) => {
+        setSubmittingAddress(true);
+
+        try {
+            setTemporaryAddress({
+                fullName: form.fullName.trim(),
+                phone: form.phone.trim(),
+                address: form.address.trim(),
+                city: form.city.trim(),
+                country: form.country.trim(),
+                saveAddress: form.saveAddress === true
+            });
+
+            setUsingDifferentAddress(false);
+
+            toast.success("Shipping address selected");
+        } finally {
+            setSubmittingAddress(false);
         }
-
-        const lockedUntil = new Date(paymentLockedUntil);
-        const now = new Date();
-
-        const remainingMs =
-            lockedUntil.getTime() - now.getTime();
-
-        if (remainingMs <= 0) {
-            return "You can try the payment again now.";
-        }
-
-        const remainingMinutes = Math.ceil(
-            remainingMs / 60000
-        );
-
-        if (remainingMinutes === 1) {
-            return "Please try again in about 1 minute.";
-        }
-
-        return `Please try again in about ${remainingMinutes} minutes.`;
     };
 
-    // ============================================
+    // ----------------------------------------
+    // RETURN TO SAVED ADDRESSES
+    // ----------------------------------------
+
+    const handleUseSavedAddress = () => {
+        setTemporaryAddress(null);
+        setUsingDifferentAddress(false);
+    };
+
+    // ----------------------------------------
     // PLACE ORDER
-    // ============================================
+    // ----------------------------------------
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
 
+        if (!currentShippingAddress) {
+            toast.error(
+                "Please select or add a shipping address"
+            );
+            return;
+        }
+
         setStep("placing");
-        setStatusMessage("");
 
         try {
+            let orderPayload;
+
+            // ----------------------------------------
+            // TEMPORARY / CUSTOM ADDRESS
+            // ----------------------------------------
+
+            if (temporaryAddress) {
+                orderPayload = {
+                    shippingAddress: {
+                        fullName:
+                            temporaryAddress.fullName,
+                        phone:
+                            temporaryAddress.phone,
+                        address:
+                            temporaryAddress.address,
+                        city:
+                            temporaryAddress.city,
+                        country:
+                            temporaryAddress.country
+                    },
+
+                    saveAddress:
+                        temporaryAddress.saveAddress
+                };
+            }
+
+            // ----------------------------------------
+            // SAVED ADDRESS
+            // ----------------------------------------
+
+            else {
+                orderPayload = {
+                    addressId: selectedAddress._id
+                };
+            }
+
+            // ----------------------------------------
+            // CREATE ORDER
+            // ----------------------------------------
+
             const orderRes =
-                await orderService.placeOrder({
-                    shippingAddress: address
-                });
+                await orderService.placeOrder(
+                    orderPayload
+                );
 
             const createdOrder = orderRes.data;
 
             setOrder(createdOrder);
 
+            // ----------------------------------------
+            // REFRESH CART
+            // ----------------------------------------
+
             await refreshCart();
 
-            // Start payment
-            await initiatePayment(
-                createdOrder._id,
-                address.phone
+            // ----------------------------------------
+            // START PAYMENT
+            // ----------------------------------------
+
+            setStep("awaiting_payment");
+
+            const payRes =
+                await orderService.payForOrder({
+                    orderId: createdOrder._id,
+                    phone:
+                        currentShippingAddress.phone
+                });
+
+            setStatusMessage(
+                payRes.data.message
             );
 
-        } catch (error) {
-            console.error(
-                "Checkout error:",
-                error
+            pollPaymentStatus(
+                payRes.data.checkoutRequestId,
+                createdOrder._id
             );
+
+        } catch (err) {
 
             toast.error(
-                error?.response?.data?.message ||
-                error.message ||
+                err.response?.data?.message ||
+                err.message ||
                 "Unable to place order"
             );
 
@@ -135,289 +221,125 @@ export default function Checkout() {
         }
     };
 
-    // ============================================
-    // INITIATE PAYMENT
-    // ============================================
-
-    const initiatePayment = async (
-        orderId,
-        phone
-    ) => {
-        setStep("awaiting_payment");
-        setStatusMessage(
-            "Sending payment prompt to your phone..."
-        );
-
-        try {
-            const payRes =
-                await orderService.payForOrder({
-                    orderId,
-                    phone
-                });
-
-            const paymentData = payRes.data;
-
-            if (paymentData?.paymentAttempts != null) {
-                setPaymentAttempts(
-                    paymentData.paymentAttempts
-                );
-            }
-
-            if (paymentData?.paymentLockedUntil) {
-                setPaymentLockedUntil(
-                    paymentData.paymentLockedUntil
-                );
-            }
-
-            setStatusMessage(
-                paymentData?.message ||
-                "Payment prompt sent. Check your phone."
-            );
-
-            pollPaymentStatus(
-                paymentData.checkoutRequestId,
-                orderId
-            );
-
-        } catch (error) {
-            console.error(
-                "Payment initiation error:",
-                error
-            );
-
-            handlePaymentError(error);
-        }
-    };
-
-    // ============================================
-    // HANDLE PAYMENT ERROR
-    // ============================================
-
-    const handlePaymentError = (error) => {
-        const response =
-            error?.response?.data;
-
-        const message =
-            response?.message ||
-            error.message ||
-            "Payment could not be initiated.";
-
-        if (response?.paymentAttempts != null) {
-            setPaymentAttempts(
-                response.paymentAttempts
-            );
-        }
-
-        if (response?.paymentLockedUntil) {
-            setPaymentLockedUntil(
-                response.paymentLockedUntil
-            );
-        }
-
-        if (response?.locked) {
-            setStatusMessage(
-                `${message} ${getLockMessage()}`
-            );
-
-            setStep("locked");
-            return;
-        }
-
-        setStatusMessage(message);
-        setStep("failed");
-    };
-
-    // ============================================
+    // ----------------------------------------
     // POLL PAYMENT STATUS
-    // ============================================
+    // ----------------------------------------
 
     const pollPaymentStatus = (
         checkoutRequestId,
         orderId
     ) => {
-        if (!checkoutRequestId) {
-            setStatusMessage(
-                "Payment request could not be tracked."
-            );
-
-            setStep("failed");
-            return;
-        }
-
         setStep("polling");
 
         const startedAt = Date.now();
 
-        if (pollingIntervalRef.current) {
-            clearInterval(
-                pollingIntervalRef.current
-            );
-        }
+        const interval = setInterval(async () => {
 
-        pollingIntervalRef.current =
-            setInterval(async () => {
-                // ----------------------------------------
-                // 5-MINUTE PAYMENT WINDOW
-                // ----------------------------------------
+            if (
+                Date.now() - startedAt >
+                POLL_TIMEOUT_MS
+            ) {
+                clearInterval(interval);
 
-                if (
-                    Date.now() - startedAt >
-                    POLL_TIMEOUT_MS
-                ) {
-                    clearInterval(
-                        pollingIntervalRef.current
+                setStatusMessage(
+                    "Still waiting on confirmation — check your Orders page shortly."
+                );
+
+                setStep("timed_out");
+
+                return;
+            }
+
+            try {
+
+                const res =
+                    await orderService.getPaymentStatus(
+                        checkoutRequestId
                     );
 
-                    pollingIntervalRef.current = null;
+                if (
+                    res.data.status === "success"
+                ) {
+                    clearInterval(interval);
+
+                    toast.success(
+                        "Payment successful"
+                    );
+
+                    navigate(
+                        `/orders/${orderId}`,
+                        { replace: true }
+                    );
+                }
+
+                else if (
+                    res.data.status === "failed"
+                ) {
+                    clearInterval(interval);
 
                     setStatusMessage(
-                        "The payment request has expired. You can try again."
+                        res.data.resultDescription ||
+                        "Payment failed. You can retry below."
                     );
 
                     setStep("failed");
-
-                    return;
                 }
 
-                try {
-                    const res =
-                        await orderService.getPaymentStatus(
-                            checkoutRequestId
-                        );
+            } catch {
+                // Continue polling
+            }
 
-                    const payment =
-                        res.data;
-
-                    // ----------------------------------------
-                    // SUCCESS
-                    // ----------------------------------------
-
-                    if (
-                        payment.status ===
-                        "success"
-                    ) {
-                        clearInterval(
-                            pollingIntervalRef.current
-                        );
-
-                        pollingIntervalRef.current =
-                            null;
-
-                        setStep("success");
-
-                        toast.success(
-                            "Payment successful!"
-                        );
-
-                        setTimeout(() => {
-                            navigate(
-                                `/orders/${orderId}`,
-                                {
-                                    replace: true
-                                }
-                            );
-                        }, 1000);
-
-                        return;
-                    }
-
-                    // ----------------------------------------
-                    // FAILED
-                    // ----------------------------------------
-
-                    if (
-                        payment.status ===
-                        "failed"
-                    ) {
-                        clearInterval(
-                            pollingIntervalRef.current
-                        );
-
-                        pollingIntervalRef.current =
-                            null;
-
-                        setStatusMessage(
-                            payment.resultDescription ||
-                            "Payment failed. You can try again."
-                        );
-
-                        setStep("failed");
-
-                        // If backend provides these
-                        if (
-                            payment.paymentAttempts !=
-                            null
-                        ) {
-                            setPaymentAttempts(
-                                payment.paymentAttempts
-                            );
-                        }
-
-                        if (
-                            payment.paymentLockedUntil
-                        ) {
-                            setPaymentLockedUntil(
-                                payment.paymentLockedUntil
-                            );
-                        }
-
-                        if (
-                            payment.locked
-                        ) {
-                            setStep("locked");
-                        }
-                    }
-
-                } catch (error) {
-                    // Don't immediately fail the UI
-                    // because a temporary polling error
-                    // does not necessarily mean payment failed.
-                    console.warn(
-                        "Payment status polling error:",
-                        error.message
-                    );
-                }
-            }, POLL_INTERVAL_MS);
+        }, POLL_INTERVAL_MS);
     };
 
-    // ============================================
+    // ----------------------------------------
     // RETRY PAYMENT
-    // ============================================
+    // ----------------------------------------
 
     const handleRetryPayment = async () => {
-        if (!order?._id) {
-            toast.error(
-                "Order information is missing."
-            );
+
+        if (
+            !order ||
+            !currentShippingAddress
+        ) {
             return;
         }
 
-        if (isRetrying) {
-            return;
-        }
-
-        setIsRetrying(true);
-
-        setStatusMessage(
-            "Sending a new payment prompt..."
-        );
+        setStep("awaiting_payment");
 
         try {
-            await initiatePayment(
-                order._id,
-                address.phone
+
+            const payRes =
+                await orderService.payForOrder({
+                    orderId: order._id,
+                    phone:
+                        currentShippingAddress.phone
+                });
+
+            setStatusMessage(
+                payRes.data.message
             );
 
-        } catch (error) {
-            handlePaymentError(error);
-        } finally {
-            setIsRetrying(false);
+            pollPaymentStatus(
+                payRes.data.checkoutRequestId,
+                order._id
+            );
+
+        } catch (err) {
+
+            toast.error(
+                err.response?.data?.message ||
+                err.message ||
+                "Unable to retry payment"
+            );
+
+            setStep("failed");
         }
     };
 
-    // ============================================
+    // ----------------------------------------
     // EMPTY CART
-    // ============================================
+    // ----------------------------------------
 
     if (
         !items.length &&
@@ -430,109 +352,15 @@ export default function Checkout() {
         );
     }
 
-    // ============================================
-    // PAYMENT SUCCESS
-    // ============================================
-
-    if (step === "success") {
-        return (
-            <div className="mx-auto max-w-sm px-6 py-24 text-center">
-
-                <CheckCircle2
-                    size={42}
-                    strokeWidth={1.5}
-                    className="mx-auto"
-                />
-
-                <p className="mt-6 text-[13px] tracking-wide text-neutral-700">
-                    PAYMENT SUCCESSFUL
-                </p>
-
-                <p className="mt-3 text-sm text-neutral-500">
-                    Your order has been confirmed.
-                </p>
-            </div>
-        );
-    }
-
-    // ============================================
-    // PAYMENT LOCKED
-    // ============================================
-
-    if (step === "locked") {
-        return (
-            <div className="mx-auto max-w-sm px-6 py-24 text-center">
-
-                <Clock3
-                    size={38}
-                    strokeWidth={1.5}
-                    className="mx-auto"
-                />
-
-                <p className="mt-6 text-[13px] tracking-wide text-neutral-700">
-                    PAYMENT TEMPORARILY LOCKED
-                </p>
-
-                <p className="mt-3 text-sm leading-6 text-neutral-500">
-                    You have reached the maximum number
-                    of payment attempts.
-                </p>
-
-                <p className="mt-2 text-sm text-neutral-500">
-                    {getLockMessage()}
-                </p>
-            </div>
-        );
-    }
-
-    // ============================================
-    // PAYMENT FLOW
-    // ============================================
+    // ----------------------------------------
+    // PAYMENT STATES
+    // ----------------------------------------
 
     if (step !== "form") {
-        const attemptsRemaining =
-            Math.max(
-                MAX_PAYMENT_ATTEMPTS -
-                paymentAttempts,
-                0
-            );
-
         return (
             <div className="mx-auto max-w-sm px-6 py-24 text-center">
 
-                {step === "placing" && (
-                    <Loader2
-                        size={28}
-                        className="mx-auto animate-spin"
-                        strokeWidth={1.5}
-                    />
-                )}
-
-                {step === "awaiting_payment" && (
-                    <Loader2
-                        size={28}
-                        className="mx-auto animate-spin"
-                        strokeWidth={1.5}
-                    />
-                )}
-
-                {step === "polling" && (
-                    <Clock3
-                        size={30}
-                        className="mx-auto"
-                        strokeWidth={1.5}
-                    />
-                )}
-
-                {step === "failed" && (
-                    <RotateCcw
-                        size={32}
-                        className="mx-auto"
-                        strokeWidth={1.5}
-                    />
-                )}
-
-                <p className="mt-6 text-[13px] tracking-wide text-neutral-700">
+                <p className="text-[13px] tracking-wide text-neutral-700">
 
                     {step === "placing" &&
                         "PLACING YOUR ORDER..."}
@@ -543,71 +371,38 @@ export default function Checkout() {
                     {step === "polling" &&
                         "CHECK YOUR PHONE"}
 
+                    {step === "timed_out" &&
+                        "STILL WAITING ON CONFIRMATION"}
+
                     {step === "failed" &&
                         "PAYMENT DIDN'T GO THROUGH"}
+
                 </p>
 
                 {statusMessage && (
-                    <p className="mt-3 text-sm leading-6 text-neutral-500">
+                    <p className="mt-3 text-sm text-neutral-500">
                         {statusMessage}
                     </p>
                 )}
 
-                {/* ----------------------------------------
-                    ATTEMPTS REMAINING
-                ---------------------------------------- */}
+                {(step === "failed" ||
+                    step === "timed_out") && (
 
-                {step === "failed" &&
-                    paymentAttempts > 0 &&
-                    !paymentLockedUntil && (
-                        <p className="mt-4 text-xs text-neutral-400">
-                            {attemptsRemaining}{" "}
-                            {attemptsRemaining === 1
-                                ? "attempt"
-                                : "attempts"}{" "}
-                            remaining
-                        </p>
-                    )}
+                    <button
+                        onClick={handleRetryPayment}
+                        className="mt-8 h-11 border border-neutral-900 px-6 text-[13px] tracking-wide"
+                    >
+                        RETRY PAYMENT
+                    </button>
+                )}
 
-                {/* ----------------------------------------
-                    RETRY BUTTON
-                ---------------------------------------- */}
-
-                {step === "failed" &&
-                    !paymentLockedUntil && (
-                        <button
-                            type="button"
-                            onClick={
-                                handleRetryPayment
-                            }
-                            disabled={isRetrying}
-                            className="mx-auto mt-8 flex h-11 items-center gap-2 border border-neutral-900 px-6 text-[13px] tracking-wide transition hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {isRetrying ? (
-                                <>
-                                    <Loader2
-                                        size={15}
-                                        className="animate-spin"
-                                    />
-                                    TRYING AGAIN...
-                                </>
-                            ) : (
-                                <>
-                                    <RotateCcw
-                                        size={15}
-                                    />
-                                    TRY AGAIN
-                                </>
-                            )}
-                        </button>
-                    )}
             </div>
         );
     }
 
-    // ============================================
+    // ----------------------------------------
     // CHECKOUT FORM
-    // ============================================
+    // ----------------------------------------
 
     return (
         <div className="mx-auto max-w-md px-6 py-12">
@@ -616,91 +411,154 @@ export default function Checkout() {
                 Checkout
             </h1>
 
-            <form
-                onSubmit={handlePlaceOrder}
-                className="mt-8 space-y-5"
-            >
+            <div className="mt-8">
 
-                <input
-                    required
-                    name="fullName"
-                    placeholder="Full name"
-                    value={address.fullName}
-                    onChange={handleChange}
-                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none focus:border-neutral-900"
-                />
-
-                <input
-                    required
-                    name="phone"
-                    placeholder="M-Pesa phone number (e.g. 0712345678)"
-                    value={address.phone}
-                    onChange={handleChange}
-                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none focus:border-neutral-900"
-                />
-
-                <input
-                    required
-                    name="address"
-                    placeholder="Delivery address"
-                    value={address.address}
-                    onChange={handleChange}
-                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none focus:border-neutral-900"
-                />
-
-                <input
-                    required
-                    name="city"
-                    placeholder="City"
-                    value={address.city}
-                    onChange={handleChange}
-                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none focus:border-neutral-900"
-                />
-
-                <input
-                    required
-                    name="country"
-                    placeholder="Country"
-                    value={address.country}
-                    onChange={handleChange}
-                    className="w-full border-b border-neutral-300 pb-2 text-sm outline-none focus:border-neutral-900"
-                />
-
-                <div className="flex items-center justify-between border-t border-base-300 pt-5 text-sm">
-                    <span className="text-neutral-500">
-                        Subtotal
-                    </span>
-
-                    <span>
-                        KES{" "}
-                        {total.toLocaleString()}
-                    </span>
-                </div>
-
-                <p className="text-[12px] text-neutral-400">
-                    Final total (incl. shipping) is
-                    confirmed after placing your order.
+                <p className="mb-3 text-[11px] tracking-[1.5px] text-neutral-400">
+                    SHIPPING ADDRESS
                 </p>
 
-                <button
-                    type="submit"
-                    disabled={step === "placing"}
-                    className="flex h-12 w-full items-center justify-center gap-2 bg-neutral-900 text-[13px] tracking-wide text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                    {step === "placing" ? (
-                        <>
-                            <Loader2
-                                size={16}
-                                className="animate-spin"
-                            />
-                            PLACING ORDER...
-                        </>
-                    ) : (
-                        "PLACE ORDER AND PAY WITH M-PESA"
-                    )}
-                </button>
+                {loadingAddresses ? (
 
-            </form>
+                    <p className="text-[13px] text-neutral-400">
+                        Loading addresses...
+                    </p>
+
+                ) : usingDifferentAddress ? (
+
+                    // ----------------------------------------
+                    // CUSTOM ADDRESS FORM
+                    // ----------------------------------------
+
+                    <div className="space-y-4">
+
+                        <AddressForm
+                            checkoutMode
+                            onSubmit={
+                                handleTemporaryAddress
+                            }
+                            onCancel={
+                                handleUseSavedAddress
+                            }
+                            submitting={
+                                submittingAddress
+                            }
+                        />
+
+                    </div>
+
+                ) : temporaryAddress ? (
+
+                    // ----------------------------------------
+                    // TEMPORARY ADDRESS PREVIEW
+                    // ----------------------------------------
+
+                    <div className="space-y-4">
+
+                        <div className="border border-neutral-900 p-4">
+
+                            <p className="text-sm font-medium">
+                                {temporaryAddress.fullName}
+                            </p>
+
+                            <p className="mt-1 text-sm text-neutral-500">
+                                {temporaryAddress.phone}
+                            </p>
+
+                            <p className="mt-1 text-sm text-neutral-500">
+                                {temporaryAddress.address}
+                            </p>
+
+                            <p className="text-sm text-neutral-500">
+                                {temporaryAddress.city},{" "}
+                                {temporaryAddress.country}
+                            </p>
+
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleUseDifferentAddress
+                            }
+                            className="w-full border border-neutral-300 py-3 text-[13px]"
+                        >
+                            EDIT ADDRESS
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleUseSavedAddress
+                            }
+                            className="w-full text-[12px] text-neutral-500 underline underline-offset-4"
+                        >
+                            USE SAVED ADDRESS INSTEAD
+                        </button>
+
+                    </div>
+
+                ) : (
+
+                    // ----------------------------------------
+                    // SAVED ADDRESSES
+                    // ----------------------------------------
+
+                    <AddressList
+                        addresses={addresses}
+                        onAdd={addAddress}
+                        onEdit={editAddress}
+                        onDelete={deleteAddress}
+                        onSetDefault={
+                            setDefaultAddress
+                        }
+                        selectable
+                        selectedId={
+                            selectedAddress?._id
+                        }
+                        onSelect={
+                            setSelectedAddressId
+                        }
+                        onUseDifferentAddress={
+                            handleUseDifferentAddress
+                        }
+                    />
+
+                )}
+
+            </div>
+
+            {/* ----------------------------------------
+                ORDER TOTAL
+            ---------------------------------------- */}
+
+            <div className="mt-6 flex items-center justify-between border-t border-neutral-200 pt-5 text-sm">
+
+                <span className="text-neutral-500">
+                    Subtotal
+                </span>
+
+                <span>
+                    KES {total.toLocaleString()}
+                </span>
+
+            </div>
+
+            <p className="text-[12px] text-neutral-400">
+                Final total (incl. shipping) is confirmed after placing your order.
+            </p>
+
+            {/* ----------------------------------------
+                PLACE ORDER
+            ---------------------------------------- */}
+
+            <button
+                onClick={handlePlaceOrder}
+                disabled={!currentShippingAddress}
+                className="mt-6 h-12 w-full bg-neutral-900 text-[13px] tracking-wide text-white disabled:opacity-40"
+            >
+                PLACE ORDER AND PAY WITH M-PESA
+            </button>
+
         </div>
     );
 }
